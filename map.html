@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+
+    <title>Map</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <style>
+      /* Add your CSS styles here */
+      .map-area {
+        position: relative;
+        height: 100vh;
+      }
+      .filters-wrapper {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1;
+        background-color: rgba(255, 255, 255, 0.8);
+        padding: 10px;
+      }
+      .row-scroll-x {
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+      .chip-main,
+      .chip {
+        margin: 5px;
+        padding: 5px 10px;
+        border: none;
+        border-radius: 20px;
+        background-color: #f0f0f0;
+        cursor: pointer;
+      }
+      .chip-main.active,
+      .chip.active {
+        background-color: #007bff;
+        color: white;
+      }
+      .map-area-sub {
+        height: 100%;
+      }
+      .bottom-navbar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: white;
+        display: flex;
+        justify-content: space-around;
+        padding: 10px;
+        box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+      }
+      .nav-item img {
+        width: 24px;
+        height: 24px;
+      }
+      .filter-container {
+        display: flex;
+        align-items: center; /* Aligns items vertically centered */
+      }
+
+      .main-filters {
+        /* Add any necessary styles for your main filters */
+        margin-right: 10px; /* Optional: space between filters and button */
+      }
+      .chip-main img {
+        width: 22px; /* Adjust the width as needed */
+        height: 22px; /* Adjust the height as needed */
+      }
+      .search-container {
+        padding: 10px;
+        background-color: rgba(255, 255, 255, 0.8);
+      }
+      #searchInput {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+      }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAG71lgWNlGLpoAZiDCaqmo1Kw15ZMpipo&libraries=maps,marker&v=beta"
+      defer
+    ></script>
+  </head>
+  <body>
+    <div class="map-area">
+      <div class="filters-wrapper">
+        <nav class="row-scroll-x d-flex">
+          <div class="filters-container-main" id="filtersContainer"></div>
+          <div class="filter-container main-filters">
+            <button class="chip-main" id="resetBtn">
+              <img class="filter-btn" src="./reset.svg" alt="Reset" />
+            </button>
+            <div class="search-container">
+              <input
+                type="text"
+                id="searchInput"
+                placeholder="البحث بالاسم..."
+              />
+            </div>
+          </div>
+        </nav>
+        <nav class="row-scroll-x">
+          <div class="filters-container" id="subFiltersContainer"></div>
+        </nav>
+      </div>
+
+      <div class="map-area-sub" id="map"></div>
+    </div>
+    <nav class="bottom-navbar">
+      <div class="nav-item">
+        <a href="" target="_blank">
+          <img src="./whatsapp.svg" alt="WhatsApp Logo" />
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="" target="_blank">
+          <img src="./store.svg" alt="Store Logo" />
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="">
+          <img src="./apps.svg" alt="Maknoon Logo" />
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="" target="_blank">
+          <img src="./apps.svg" alt="Apps Logo" />
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="" target="_blank">
+          <img src="./more.svg" alt="More Logo" />
+        </a>
+      </div>
+    </nav>
+
+    <script>
+      // Static JSON data
+      const staticData = {
+        filters: {
+          field: {
+            name: "المجال",
+            data: [
+              { id: 1, name: "تعليم القرآن الكريم", active: false },
+              { id: 2, name: "البر", active: false },
+              { id: 3, name: "الدعوة والإرشاد", active: false },
+            ],
+          },
+          district: {
+            name: "الحي",
+            data: [
+              { id: 3, name: "الفيصلية", active: false },
+              { id: 4, name: "القدس", active: false },
+              { id: 5, name: "محمد بن سعود", active: false },
+              { id: 6, name: "الدوحة الجنوبية", active: false },
+              { id: 7, name: "السوق", active: false },
+            ],
+          },
+          governanceDegree: {
+            name: "المعيار",
+            data: [
+              { id: 1, name: "70%", active: false },
+              { id: 2, name: "80%", active: false },
+              { id: 3, name: "90%", active: false },
+            ],
+          },
+        },
+        pins: [
+          {
+            id: 1,
+            name: "تحفيظ الشرقية",
+            latitude: 26.397751381948613,
+            longitude: 50.04649161180187,
+            phone: "966559367987",
+            description:
+              "نحـن جمعية خيريـة تعنـى بتعليـم كتـاب الله تلاوة وحفظاً وإتقاناً. وذلك من خلال برامج متنوعة ، ومناهج علمية متخصصة وكفاءات متميزة وربط جميع فئات المجتمع بالقرآن ، راجين بذلك مرضاته والأجر والثواب للمنفقين والقائمين عليها. ومصرحة من المركز الوطني لتنمية القطاع الغير ربحي بتصريح رقم 3090. وتحظى بالرئاسة الفخرية من لدن صاحب السمو الملكي الأمير سعود بن نايف بن عبدالعزيز آل سعود، أمير المنطقة الشرقية.",
+            governanceDegree: "99.67%",
+            district: "الفيصلية",
+            field: "تعليم القرآن الكريم",
+            X: "https://twitter.com/qer_org",
+            main: "https://quran-er.org.sa/",
+            googleUrl: "https://maps.app.goo.gl/iXySX4soxmD9Y2Rd6",
+            mainphoto: "./main1.png",
+          },
+          {
+            id: 2,
+            name: "الجمعية الخيرية لتحفيظ القرآن الكريم بالجبيل",
+            latitude: 27.1384653013627,
+            longitude: 49.53684001589455,
+            phone: "966133480040",
+            description:
+              "تحفيظ القرآن وتعليمه من خلال برامج قرآنية متميزة وكوادر مؤهلة ونظم متقدمة في بيئة جاذبة وآمنة وشراكة مجتمعية مستدامة",
+            governanceDegree: "97%",
+            district: "القدس",
+            field: "تعليم القرآن الكريم",
+            X: "https://twitter.com/hqjubail",
+            main: "https://hqjubail.org.sa/",
+            googleUrl: "https://maps.app.goo.gl/iDCXwx25rv9qU1ta8",
+            mainphoto: "./main2.png",
+          },
+
+          {
+            id: 3,
+            name: "جمعية البر بالمنطقة الشرقية",
+            latitude: 26.43393682101793,
+            longitude: 50.11304423687852,
+            phone: "966138266666",
+            description: "جمعية تعنى بأعمال البر",
+            governanceDegree: "-%",
+            district: "محمد بن سعود",
+            field: "البر",
+            X: "https://twitter.com/asharqiaber?lang=ar",
+            main: "https://www.alberlive.net/",
+            googleUrl: "https://maps.app.goo.gl/P8MBrRNTjPmUdZAm8",
+            mainphoto: "./main3.png",
+          },
+          {
+            id: 4,
+            name: "جمعية الدعوة والإرشاد وتوعية الجاليات بالظهران - سراج",
+            latitude: 26.31880124855985,
+            longitude: 50.15869059143307,
+            phone: "966138680080",
+            description:
+              "جمعية الدعـوة والإرشـاد وتوعيـة الجاليـات بالظهـران (سـراج)، مسجلة لدى وزارة المـوارد البشـرية والتنميـة الاجتماعيـة بـرقـم تسجيل 3185 وتاريخ 1441/4/14هـ، وقد تأسست الجمعية في تاريخ 1428/8/19 هـ وتعمل الجمعية في مجـال الدعـوة والإرشاد وتوعية الجاليـات وتقـدم خدماتهـا في مدينة الظهران.",
+            governanceDegree: "-%",
+            district: "الدوحة الجنوبية",
+            field: "الدعوة والإرشاد",
+            X: "https://twitter.com/asharqiaber?lang=ar",
+            main: "http://www.seraj.org.sa/",
+            googleUrl: "https://maps.app.goo.gl/942HEnQcos4sTgVp9",
+            mainphoto: "./main4.png",
+          },
+          {
+            id: 5,
+            name: "جمعية الدعوة والإرشاد وتوعية الجاليات بمدينة الدمام",
+            latitude: 26.444705541352633,
+            longitude: 50.0980762557381,
+            phone: "966556821112",
+            description:
+              "جمعية الدعـوة والإرشـاد وتوعيـة الجاليـات بالظهـران (سـراج)، مسجلة لدى وزارة المـوارد البشـرية والتنميـة الاجتماعيـة بـرقـم تسجيل 3185 وتاريخ 1441/4/14هـ، وقد تأسست الجمعية في تاريخ 1428/8/19 هـ وتعمل الجمعية في مجـال الدعـوة والإرشاد وتوعية الجاليـات وتقـدم خدماتهـا في مدينة الظهران.",
+            governanceDegree: "-%",
+            district: "السوق",
+            field: "الدعوة والإرشاد",
+            X: "https://x.com/iccdmm",
+            main: "icc.org.sa",
+            googleUrl: "https://maps.app.goo.gl/gZubRr9Vkj1ntENV9",
+            mainphoto: "./main5.png",
+          },
+        ],
+      };
+
+      let map;
+      let markers = [];
+      let activeFilter = null;
+      let searchTerm = "";
+      let infoWindows = []; // Array to store info windows
+
+      function initializeMap() {
+        map = new google.maps.Map(document.getElementById("map"), {
+          center: { lat: 26.42236, lng: 50.0885 },
+          zoom: 12,
+          gestureHandling: "greedy",
+          streetViewControl: false,
+          zoomControl: false,
+          mapTypeControl: false,
+          fullscreenControl: false,
+        });
+        // Add event listeners to the map
+        navigator.geolocation.getCurrentPosition(geoSuccess, geoError);
+        document
+          .getElementById("searchInput")
+          .addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
+              searchTerm = e.target.value;
+              filterPins();
+            }
+          });
+
+        renderPins();
+      }
+      function renderPins() {
+        // Clear existing markers and info windows
+        markers.forEach((marker) => marker.setMap(null));
+        infoWindows.forEach((infoWindow) => infoWindow.close());
+        markers = [];
+        infoWindows = [];
+
+        staticData.pins.forEach((pin) => {
+          const marker = new google.maps.Marker({
+            position: { lat: pin.latitude, lng: pin.longitude },
+            map: map,
+            title: pin.name,
+            icon: {
+              url: "./pin_user.svg",
+              scaledSize: new google.maps.Size(31, 46),
+            },
+          });
+
+          const infoWindow = new google.maps.InfoWindow({
+            content: generateInfoContent(pin),
+          });
+
+          marker.addListener("click", () => {
+            infoWindows.forEach((iw) => iw.close()); // Close all other info windows
+            infoWindow.open(map, marker);
+          });
+
+          markers.push(marker);
+          infoWindows.push(infoWindow);
+        });
+      }
+
+      function generateInfoContent(pin) {
+        const googleMapsUrl = `https://www.google.com/maps?q=${pin.latitude},${pin.longitude}`;
+        const photoIcon = "web.svg";
+        const DotIcon = "green_dot.svg";
+        const photoBackground = "#ffcb6b";
+        const nameTextColor = "#447d6a";
+        const nameBackground = "#f5f8fe";
+        const arrow = "arrow.svg";
+
+        return `
+          <div style="max-width: 300px; background-color: #ffffff; border-radius: 10px; padding: 10px; font-family: 'Arial'; direction: rtl; text-align: right;">
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+              <a href="${pin.main}" target="_blank" style="text-decoration: none; color: #4c69ab;">
+              <img src="${pin.mainphoto}" alt="Icon" style="width: 100px; height: 100px; background-color: ${photoBackground}; padding: 5px; border-radius: 5px; margin-right: 10px;">
+              </a>
+              <div style="flex-grow: 1;">
+                <div style="background-color: ${nameBackground}; border-radius: 20px; padding: 5px 10px;">
+                  <img src="${DotIcon}" alt="Icon" style="width: 8px; height: 8px; margin-right: 5px;">
+                  <span style="color: ${nameTextColor}; font-size: 16px;">${pin.name}</span>
+                </div>
+              </div>
+            </div>
+            <div style="margin-bottom: 10px;">
+              <a href="${pin.googleUrl}" style="text-decoration: none; color: white; background-color: #4c69ab; border-radius: 20px; padding: 5px 10px; margin-right: 5px;">
+                <img src="${arrow}" alt="Icon" style="width: 10px; height: 10px; margin-right: 5px;">
+                الاتجاه
+                </a>
+              <a href="${pin.X}" style="text-decoration: none; color: white; background-color: #000000; border-radius: 20px; padding: 5px 10px; margin-right: 5px;">X</a>
+              </div>
+              <div>
+                <p style="margin-bottom: 5px;">المجال: ${pin.field}</p>
+                <p style="margin-bottom: 5px;">الحي: ${pin.district}</p>
+                <p style="margin-bottom: 5px;">المعيار: ${pin.governanceDegree}</p>
+                <p style="margin-bottom: 5px;">
+                  الهاتف: <a href="tel:${pin.phone}">${pin.phone}</a>
+                </p>
+                <p style="margin-bottom: 5px;">الوصف: ${pin.description}</p>
+                
+                </div>
+          </div>
+        `;
+      }
+      async function geoSuccess(position) {
+        const center = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+
+        if (map) {
+          // Update the center and zoom of the existing map instance
+          map.setCenter(center);
+          map.setZoom(15);
+
+          // Place the user marker on the updated map
+          placeUserMarker(center, map);
+        } else {
+          console.error("Map instance is not initialized.");
+        }
+      }
+
+      function geoError(error) {
+        const defaultCenter = "24.684239941494525,46.707254067257256";
+
+        if (map) {
+          // Update the center and zoom of the existing map instance
+          map.setCenter(defaultCenter);
+          map.setZoom(12);
+
+          // Optionally, update other properties if needed
+          map.setOptions({
+            gestureHandling: "greedy",
+            streetViewControl: false,
+          });
+        } else {
+          console.error("Map instance is not initialized.");
+        }
+      }
+
+      function placeUserMarker(center, map) {
+        // Create a container for the user marker
+        const userPinImage = "./pin_user_location.svg";
+
+        // Create a new marker with the given position and image
+        const marker = new google.maps.Marker({
+          position: center,
+          map: map, // Pass the map instance
+          title: "انت هنا",
+          icon: {
+            url: userPinImage, // Path to the SVG image
+            scaledSize: new google.maps.Size(40, 50), // Scale the image size
+            scale: 2, // Scale factor (adjust as needed)
+          },
+        });
+
+        marker.addListener("click", () => {
+          alert("انت هنا!"); // Shows an alert box
+        });
+      }
+
+      function renderFilters() {
+        const filtersContainer = document.getElementById("filtersContainer");
+        filtersContainer.innerHTML = "";
+
+        Object.keys(staticData.filters).forEach((filterKey) => {
+          const chip = createChip(
+            filterKey,
+            staticData.filters[filterKey].name
+          );
+          filtersContainer.appendChild(chip);
+        });
+      }
+
+      function createChip(filterKey, name) {
+        const chip = document.createElement("button");
+        chip.className = `chip-main`;
+        chip.id = filterKey;
+        chip.innerText = name;
+        chip.addEventListener("click", () => toggleFilter(filterKey));
+        return chip;
+      }
+
+      function toggleFilter(filterKey) {
+        activeFilter = filterKey;
+        renderSubFilters(filterKey);
+        updateButtonStates();
+      }
+
+      function renderSubFilters(filterKey) {
+        const subFiltersContainer = document.getElementById(
+          "subFiltersContainer"
+        );
+        subFiltersContainer.innerHTML = "";
+
+        staticData.filters[filterKey].data.forEach((subFilter) => {
+          const chip = createSubChip(subFilter);
+          subFiltersContainer.appendChild(chip);
+        });
+      }
+
+      function createSubChip(subFilter) {
+        const chip = document.createElement("button");
+        chip.className = `chip ${subFilter.active ? "active" : ""}`;
+        chip.id = subFilter.id;
+        chip.innerText = subFilter.name;
+        chip.addEventListener("click", () => toggleSubFilter(subFilter));
+        return chip;
+      }
+
+      function toggleSubFilter(subFilter) {
+        subFilter.active = !subFilter.active;
+        updateButtonStates();
+        filterPins();
+      }
+
+      function updateButtonStates() {
+        Object.keys(staticData.filters).forEach((filterKey) => {
+          const button = document.getElementById(filterKey);
+          button.classList.toggle("active", filterKey === activeFilter); // Update main filter active state
+        });
+
+        if (activeFilter) {
+          staticData.filters[activeFilter].data.forEach((subFilter) => {
+            const button = document.getElementById(subFilter.id);
+            button.classList.toggle("active", subFilter.active); // Update sub-filter active states
+          });
+        } else {
+          document.getElementById("subFiltersContainer").innerHTML = ""; // Clear sub-filters
+        }
+      }
+
+      document
+        .getElementById("resetBtn")
+        .addEventListener("click", resetFilters);
+
+      function resetFilters() {
+        // Reset active filters
+        Object.keys(staticData.filters).forEach((filterKey) => {
+          staticData.filters[filterKey].data.forEach((subFilter) => {
+            subFilter.active = false; // Deactivate all sub-filters
+          });
+        });
+
+        activeFilter = null; // Clear active filter
+        updateButtonStates(); // Update button states (no filter should be active)
+        renderPins(); // Re-render all pins
+      }
+
+      function filterPins() {
+        // Clear existing markers and info windows
+        markers.forEach((marker) => marker.setMap(null));
+        infoWindows.forEach((infoWindow) => infoWindow.close());
+        markers = [];
+        infoWindows = [];
+
+        const filters = staticData.filters;
+
+        // Collect active subfilters from all filter categories except governanceDegree
+        const activeFilterValues = {};
+
+        Object.keys(filters).forEach((filterKey) => {
+          if (filterKey !== "governanceDegree") {
+            const activeSubFilters = filters[filterKey].data
+              .filter((sf) => sf.active)
+              .map((sf) => sf.name); // Collect only active subfilter names
+
+            if (activeSubFilters.length > 0) {
+              activeFilterValues[filterKey] = activeSubFilters;
+            }
+          }
+        });
+
+        // Get the selected governance degree filter (if any)
+        const selectedGovernanceDegree = filters.governanceDegree.data.find(
+          (filter) => filter.active
+        );
+
+        let foundPin = null;
+
+        staticData.pins.forEach((pin, index) => {
+          let showPin = true;
+
+          // Filter by governance degree if selected
+          if (selectedGovernanceDegree) {
+            const pinGovernanceDegree = parseFloat(pin.governanceDegree);
+
+            if (
+              isNaN(pinGovernanceDegree) ||
+              pinGovernanceDegree <
+                selectedGovernanceDegree.name.replace("%", "")
+            ) {
+              showPin = false;
+            }
+          }
+
+          // Filter by search term if provided
+          if (
+            searchTerm &&
+            !pin.name.toLowerCase().includes(searchTerm.toLowerCase())
+          ) {
+            showPin = false;
+          }
+
+          // Filter by other categories (district, field)
+          if (Object.keys(activeFilterValues).length > 0) {
+            Object.keys(activeFilterValues).forEach((filterKey) => {
+              const pinValue = pin[filterKey];
+              const activeValues = activeFilterValues[filterKey];
+
+              if (!activeValues.includes(pinValue)) {
+                showPin = false;
+              }
+            });
+          }
+
+          // Show pin if all conditions pass
+          if (showPin) {
+            const marker = new google.maps.Marker({
+              position: { lat: pin.latitude, lng: pin.longitude },
+              map: map,
+              title: pin.name,
+              icon: {
+                url: "./pin_user.svg",
+                scaledSize: new google.maps.Size(31, 46),
+              },
+            });
+
+            const infoWindow = new google.maps.InfoWindow({
+              content: generateInfoContent(pin),
+            });
+
+            marker.addListener("click", () => {
+              infoWindows.forEach((iw) => iw.close()); // Close all other info windows
+              infoWindow.open(map, marker);
+            });
+
+            markers.push(marker);
+            infoWindows.push(infoWindow);
+
+            // Save the first found pin for focusing
+            if (
+              !foundPin &&
+              searchTerm &&
+              pin.name.toLowerCase().includes(searchTerm.toLowerCase())
+            ) {
+              foundPin = { marker, pin, infoWindow };
+            }
+          }
+        });
+
+        // Focus on the first found pin or reset the map view if no match
+        if (foundPin) {
+          focusOnPin(foundPin);
+        } else if (searchTerm) {
+          map.setZoom(12);
+          map.setCenter({ lat: 24.7136, lng: 46.6753 }); // Default center
+          alert("No matching pins found for the search term: " + searchTerm);
+        }
+      }
+
+      function focusOnPin(pinData) {
+        // Close all info windows
+        infoWindows.forEach((iw) => iw.close());
+
+        // Zoom and center on the found pin
+        map.setZoom(15);
+        map.setCenter(pinData.marker.getPosition());
+
+        // Open the info window for the found pin
+        pinData.infoWindow.open(map, pinData.marker);
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        initializeMap();
+        renderFilters();
+      });
+    </script>
+  </body>
+</html>
